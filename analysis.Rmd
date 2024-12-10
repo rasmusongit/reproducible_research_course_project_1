@@ -1,0 +1,142 @@
+# Reproducible Research: Course project 1
+
+## Github : https://github.com/rasmusongit/reproducible_research_course_project_1
+
+
+## Exercise 1:
+Code for reading in the dataset and/or processing the data
+
+*Reading in the data*:
+To read in the data we used <read.csv>
+```{r, echo=TRUE}
+dataframe <- read.csv("activity.csv", header=TRUE)
+print(names(dataframe))
+```
+Okay. What dates do we have?
+```{r, echo=TRUE}
+print(unique(dataframe$date))
+```
+Okay. What weekdays do we have?
+```{r, echo=TRUE}
+print(unique(weekdays(as.Date(dataframe$date))))
+dataframe[["weekdays"]] <- weekdays(as.Date(dataframe$date))
+names(dataframe)
+print(unique(dataframe$weekdays))
+```
+## Exercise 2:
+Histogram of the total number of steps taken each day
+
+```{r, echo=TRUE}
+per_weekday <- split(dataframe$steps, dataframe$weekdays)
+par(mfrow = c(3, 2))
+for (wday in names(per_weekday)) {
+    hist(per_weekday[[wday]], main = wday, xlab="Steps", col="blue", breaks=12)
+}
+```
+
+## Exercise 3:
+Mean and median number of steps taken each day
+
+
+The mean and median number of steps taken per day is:
+```{r, echo=TRUE}
+means <- tapply(dataframe$steps, dataframe$weekdays, mean, na.rm=TRUE)
+medians <- tapply(dataframe$steps, dataframe$weekdays, median, na.rm=TRUE)
+
+result_table <- data.frame(
+  mean = means,
+  median = medians
+)
+
+# Print the table
+print(result_table)
+```
+## Exercise 4:
+Time series plot of the average number of steps taken
+
+First we need to compute the mean steps taken per day per time interval.
+Now, What are the values like in the <interval> column?
+```{r, echo=TRUE}
+head(dataframe$interval)
+```
+Then, we can use a tapply call like:
+```{r, echo=TRUE}
+mean_step_time <- tapply(dataframe$steps, dataframe$interval, mean, na.rm=TRUE)
+dim(means)
+
+plot(unique(dataframe$interval), mean_step_time, type="l", xlab="Time [minutes]", ylab="Mean steps taken")
+```
+
+
+## Exercise 5:
+The 5-minute interval that, on average, contains the maximum number of steps
+
+We can find this using an approach like "argmax".
+```{r, echo=TRUE}
+argmax_ind <- which.max(mean_step_time)
+print(paste("The time interval with the highest number of steps is: ", unique(dataframe$interval)[[argmax_ind]]))
+```
+## Exercise 6:
+Code to describe and show a strategy for imputing missing data
+
+We can do this using <sum> and <is.na> functions.
+```{r, echo=TRUE}
+print(sum(is.na(dataframe)))
+```
+
+We can fill the NAs with the mean value of the weekday they are from using dplyr.
+```{r, echo=TRUE}
+print(sum(is.na(dataframe)))
+
+
+library(dplyr)
+dataframe_no_na <- dataframe %>%
+    group_by(weekdays) %>%
+    mutate(steps = ifelse(is.na(steps), mean(steps, na.rm=TRUE), steps))
+
+print(sum(is.na(dataframe)))
+```
+
+The new dataset with no NANs is called <dataframe_no_na>.
+
+## Exercise 7:
+Histogram of the total number of steps taken each day after missing values are imputed
+
+We can use the same plotting as before.
+```{r, echo=TRUE}
+per_weekday <- split(dataframe_no_na$steps, dataframe_no_na$weekdays)
+par(mfrow = c(3, 2))
+for (wday in names(per_weekday)) {
+    hist(per_weekday[[wday]], main = wday, xlab="Steps", col="blue", breaks=12)
+}
+```
+
+## Exercise 8:
+Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r, echo=TRUE}
+dataframe_no_na <- dataframe_no_na %>%
+                    mutate(weekend = ifelse(
+                    weekdays %in% c("Saturday", "Sunday"), 1, 0))
+dataframe_no_na <- dataframe_no_na %>%
+                    mutate(weekday = ifelse(
+                    weekdays %in% c("Monday", "Tuesday", "Wednesday", "Thursday" , "Friday"), 1, 0))
+
+
+dataframe_no_na$weekendstatus <- ifelse(dataframe_no_na$weekend == 1, "Weekend", "Weekday")
+
+# Aggregate data: calculate the mean of 'gamma' for each 'time' and 'status'
+agg_df <- aggregate(steps ~ interval + weekendstatus, data = dataframe_no_na, FUN = mean)
+
+library(ggplot2)
+ggplot(agg_df, aes(x = interval, y = steps)) +
+  geom_line(aes(color = weekendstatus), size = 1) + 
+  facet_wrap(~ weekendstatus, scales = "free", ncol=1) +  
+  labs(title = "Mean steps vs interval by Status (Weekend/Weekday)",
+       x = "Time",
+       y = "Mean steps")
+```
+
+## Exercise 9:
+All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+
